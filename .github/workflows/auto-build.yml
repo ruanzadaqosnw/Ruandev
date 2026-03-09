@@ -13,61 +13,83 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
     
-    - name: Setup
+    - name: Setup Xcode
       run: |
         xcode-select --switch /Applications/Xcode.app/Contents/Developer
         xcodebuild -version
     
-    - name: Generate Project
-      run: swift package generate-xcodeproj
-    
-    - name: Build App
+    - name: Install Dependencies
       run: |
+        cd Backend
+        npm install
+        cd ..
+    
+    - name: Generate Xcode Project
+      run: |
+        swift package generate-xcodeproj
+        ls -la
+    
+    - name: Build for iOS
+      run: |
+        mkdir -p build/derived
+        
         xcodebuild -scheme RuanDevAPIServer \
           -configuration Release \
           -sdk iphoneos \
+          -derivedDataPath build/derived \
           -arch arm64 \
-          -derivedDataPath build \
-          build
+          build 2>&1 | tee build.log
     
-    - name: Package IPA
+    - name: Check Build Output
+      run: |
+        echo "=== Build Output ==="
+        cat build.log
+        echo ""
+        echo "=== Directory Structure ==="
+        find build/derived -name "*.app" -type d
+    
+    - name: Create IPA
       run: |
         mkdir -p build/ipa/Payload
-        cp -r build/Build/Products/Release-iphoneos/RuanDevAPIServer.app build/ipa/Payload/
-        cd build/ipa && zip -r ../RuanDevAPIServer.ipa Payload/ && cd ../..
+        
+        # Encontrar o app compilado
+        APP_PATH=$(find build/derived -name "RuanDevAPIServer.app" -type d | head -1)
+        
+        if [ -z "$APP_PATH" ]; then
+          echo "❌ App não encontrado!"
+          echo "Procurando por .app:"
+          find build -name "*.app" -type d
+          exit 1
+        fi
+        
+        echo "✅ App encontrado em: $APP_PATH"
+        
+        # Copiar app
+        cp -r "$APP_PATH" build/ipa/Payload/
+        
+        # Criar IPA
+        cd build/ipa
+        zip -r ../RuanDevAPIServer.ipa Payload/
+        cd ../..
+        
+        # Verificar
+        ls -lh build/RuanDevAPIServer.ipa
     
     - name: Upload Artifact
+      if: success()
       uses: actions/upload-artifact@v3
       with:
         name: RuanDevAPIServer.ipa
         path: build/RuanDevAPIServer.ipa
         retention-days: 90
     
-    - name: Get IPA Info
+    - name: Display IPA Info
+      if: success()
       run: |
-        echo "📱 IPA gerado com sucesso!"
+        echo "📱 IPA Compilado com Sucesso!"
+        echo ""
+        echo "Arquivo: RuanDevAPIServer.ipa"
         ls -lh build/RuanDevAPIServer.ipa
-        file build/RuanDevAPIServer.ipa
-        unzip -l build/RuanDevAPIServer.ipa | head -15
-    
-    - name: Create Release
-      if: success()
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ github.run_number }}
-        release_name: Release v${{ github.run_number }}
-        draft: false
-        prerelease: false
-    
-    - name: Upload Release Asset
-      if: success()
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/RuanDevAPIServer.ipa
-        asset_name: RuanDevAPIServer-arm64.ipa
-        asset_content_type: application/octet-stream
+        echo ""
+        echo "Conteúdo:"
+        unzip -l build/RuanDevAPIServer.ipa | head -20
