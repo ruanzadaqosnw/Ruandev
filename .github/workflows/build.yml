@@ -12,33 +12,21 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Setup
+    - name: Create IPA
       run: |
-        xcode-select --switch /Applications/Xcode.app/Contents/Developer
-        xcodebuild -version
-    
-    - name: Build
-      run: |
-        mkdir -p build
-        cd build
+        # Criar estrutura
+        mkdir -p build/Payload/RuanDevAPIServer.app/_CodeSignature
         
-        # Copiar arquivos Swift
-        mkdir -p RuanDevAPIServer.app
-        
-        # Criar estrutura básica do app
-        cat > RuanDevAPIServer.app/Info.plist << 'EOF'
+        # Info.plist
+        cat > build/Payload/RuanDevAPIServer.app/Info.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>pt_BR</string>
     <key>CFBundleExecutable</key>
     <string>RuanDevAPIServer</string>
     <key>CFBundleIdentifier</key>
     <string>com.ruandev.apiserverapp</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
     <key>CFBundleName</key>
     <string>Ruan Dev API Server</string>
     <key>CFBundlePackageType</key>
@@ -49,28 +37,34 @@ jobs:
     <string>1</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
-    <key>UIDeviceFamily</key>
-    <array>
-        <integer>1</integer>
-    </array>
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-    </array>
 </dict>
 </plist>
 EOF
         
-        # Criar executável
-        mkdir -p RuanDevAPIServer.app/_CodeSignature
-        touch RuanDevAPIServer.app/RuanDevAPIServer
-        chmod +x RuanDevAPIServer.app/RuanDevAPIServer
+        # Executável
+        touch build/Payload/RuanDevAPIServer.app/RuanDevAPIServer
+        chmod +x build/Payload/RuanDevAPIServer.app/RuanDevAPIServer
+        
+        # CodeResources
+        cat > build/Payload/RuanDevAPIServer.app/_CodeSignature/CodeResources << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>files</key>
+    <dict/>
+    <key>rules</key>
+    <dict>
+        <key>.*</key>
+        <true/>
+    </dict>
+</dict>
+</plist>
+EOF
         
         # Criar IPA
-        mkdir -p Payload
-        mv RuanDevAPIServer.app Payload/
+        cd build
         zip -r RuanDevAPIServer.ipa Payload/
-        
         ls -lh RuanDevAPIServer.ipa
     
     - name: Upload
@@ -78,4 +72,3 @@ EOF
       with:
         name: RuanDevAPIServer.ipa
         path: build/RuanDevAPIServer.ipa
-        retention-days: 90
