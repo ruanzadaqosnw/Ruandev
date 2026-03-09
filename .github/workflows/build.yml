@@ -10,65 +10,101 @@ jobs:
     runs-on: macos-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v3
+      continue-on-error: true
     
-    - name: Create IPA
+    - name: Debug Info
       run: |
-        # Criar estrutura
+        echo "=== System Info ==="
+        uname -a
+        pwd
+        ls -la
+        echo ""
+        echo "=== Disk Space ==="
+        df -h
+    
+    - name: Create IPA Structure
+      run: |
+        echo "Creating IPA structure..."
         mkdir -p build/Payload/RuanDevAPIServer.app/_CodeSignature
-        
-        # Info.plist
-        cat > build/Payload/RuanDevAPIServer.app/Info.plist << 'EOF'
+        echo "✅ Directories created"
+    
+    - name: Create Info.plist
+      run: |
+        echo "Creating Info.plist..."
+        cat > build/Payload/RuanDevAPIServer.app/Info.plist << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key>
-    <string>RuanDevAPIServer</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.ruandev.apiserverapp</string>
-    <key>CFBundleName</key>
-    <string>Ruan Dev API Server</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>LSRequiresIPhoneOS</key>
-    <true/>
+	<key>CFBundleExecutable</key>
+	<string>RuanDevAPIServer</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.ruandev.apiserverapp</string>
+	<key>CFBundleName</key>
+	<string>Ruan Dev API Server</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
 </dict>
 </plist>
-EOF
-        
-        # Executável
+PLIST
+        echo "✅ Info.plist created"
+        cat build/Payload/RuanDevAPIServer.app/Info.plist
+    
+    - name: Create Executable
+      run: |
+        echo "Creating executable..."
         touch build/Payload/RuanDevAPIServer.app/RuanDevAPIServer
         chmod +x build/Payload/RuanDevAPIServer.app/RuanDevAPIServer
-        
-        # CodeResources
-        cat > build/Payload/RuanDevAPIServer.app/_CodeSignature/CodeResources << 'EOF'
+        echo "✅ Executable created"
+        ls -la build/Payload/RuanDevAPIServer.app/
+    
+    - name: Create CodeResources
+      run: |
+        echo "Creating CodeResources..."
+        cat > build/Payload/RuanDevAPIServer.app/_CodeSignature/CodeResources << 'RESOURCES'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>files</key>
-    <dict/>
-    <key>rules</key>
-    <dict>
-        <key>.*</key>
-        <true/>
-    </dict>
+	<key>files</key>
+	<dict/>
+	<key>rules</key>
+	<dict>
+		<key>.*</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
-EOF
-        
-        # Criar IPA
-        cd build
-        zip -r RuanDevAPIServer.ipa Payload/
-        ls -lh RuanDevAPIServer.ipa
+RESOURCES
+        echo "✅ CodeResources created"
     
-    - name: Upload
+    - name: Create ZIP/IPA
+      run: |
+        echo "Creating IPA..."
+        cd build
+        ls -la Payload/
+        zip -r RuanDevAPIServer.ipa Payload/
+        echo "✅ IPA created"
+        ls -lh RuanDevAPIServer.ipa
+        file RuanDevAPIServer.ipa
+    
+    - name: Verify IPA
+      run: |
+        echo "Verifying IPA..."
+        unzip -l build/RuanDevAPIServer.ipa
+        echo "✅ IPA verified"
+    
+    - name: Upload Artifact
       uses: actions/upload-artifact@v3
       with:
         name: RuanDevAPIServer.ipa
         path: build/RuanDevAPIServer.ipa
+        if-no-files-found: error
