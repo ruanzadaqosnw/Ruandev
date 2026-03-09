@@ -1,0 +1,85 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Xcode
+      run: |
+        sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+        xcodebuild -version
+    
+    - name: Install dependencies
+      run: |
+        cd Backend
+        npm install
+    
+    - name: Build iOS App
+      run: |
+        # Criar um projeto Xcode básico se não existir
+        if [ ! -f "RuanDevAPIServer.xcodeproj/project.pbxproj" ]; then
+          echo "Criando projeto Xcode..."
+          # Você pode usar um template ou criar manualmente
+        fi
+        
+        # Build para iOS
+        xcodebuild -scheme RuanDevAPIServer \
+          -configuration Release \
+          -sdk iphoneos \
+          -derivedDataPath build \
+          -arch arm64 \
+          build
+    
+    - name: Create IPA
+      run: |
+        # Criar o arquivo IPA
+        mkdir -p build/ipa
+        
+        # Copiar o app compilado
+        cp -r build/Build/Products/Release-iphoneos/RuanDevAPIServer.app \
+          build/ipa/Payload/
+        
+        # Criar o IPA (que é um ZIP)
+        cd build/ipa
+        zip -r ../RuanDevAPIServer.ipa Payload/
+        cd ../..
+    
+    - name: Upload IPA as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: RuanDevAPIServer.ipa
+        path: build/RuanDevAPIServer.ipa
+        retention-days: 30
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+    
+    - name: Upload Release Asset
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/RuanDevAPIServer.ipa
+        asset_name: RuanDevAPIServer-${{ github.ref }}.ipa
+        asset_content_type: application/octet-stream
